@@ -16,10 +16,10 @@ int yyparse(void);
 int yylex(void);
 
 extern FILE *yyin;
-extern int line_count;
+extern int line_count; 
 int err_sem = 0;
 
-SymbolTable table(10); 
+SymbolTable table(11); 
 
 string var_type = "";
 
@@ -55,41 +55,43 @@ void yyerror(const char *s){
 
 start: program
 		{
-			logfile << "Line " << line_count << " : start : program\n"; 
+			logfile << "start : program\n"; 
 		}
 		;
 
 program : program unit
 {
-    logfile << "Line " << line_count <<  " : program : program unit\n"; 
+    logfile << "program : program unit\n"; 
+    logfile << "start : program\n";
+    logfile << "Total lines: " << line_count << "\n"; 
+    logfile << "Total Errors: " << err_sem << "\n"; 
 }
 | unit
 {
-    logfile << "Line " << line_count << " : program : unit\n";
+    logfile << "program : unit\n";
 }
 ;
 unit : var_declaration
         {
-            logfile << "Line " << line_count << " : unit : var_declaration\n"; 
+            logfile << "unit  : var_declaration\n"; 
         }
         | func_declaration
         {
-            logfile << "Line " << line_count << " : unit : func_declaration\n";
+            logfile << "unit : func_declaration\n";
         }
         | func_definition
         {
-            logfile << "Line " << line_count << " : unit : func_definition\n";
+            logfile << "unit : func_definition\n";
         }
         ;
 func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
                     {
-                        logfile << "Line " << line_count << " : func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n";
+                        logfile << "func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n";
                         string nameID = $2->getname();
-                        string IDtype = "FUNC";  
-                        logfile << nameID << "\n";    
+                        string IDtype = "FUNC";     
                         SymbolInfo *check = table.LookUp2(nameID,IDtype);
                         if(check){
-                            errf << "Error at line " << line_count << " Function " << nameID << "already declared.\n"; 
+                            errf << "Line# " << line_count << ": Function '"<< nameID <<"' already declared\n"; 
                             err_sem++; 
                         }
                         else{
@@ -104,38 +106,55 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
                             function_arg_types.clear(); 
                         }
                     }
-                    | type_specifier ID LPAREN parameter_list RPAREN error
+                    | type_specifier ID LPAREN RPAREN SEMICOLON
                     {
-                        errf << "Error at line " << line_count << "; missing\n" ;
-						err_sem++; 
+                        logfile << "func_declaration : type_specifier ID LPAREN RPAREN SEMICOLON\n";
+                        string nameID = $2->getname();
+                        string IDtype = "FUNC";     
+                        SymbolInfo *check = table.LookUp2(nameID,IDtype);
+                        if(check){
+                            errf << "Line# " << line_count << ": Function '"<< nameID <<"' already declared\n"; 
+                            err_sem++; 
+                        }
+                        else{
+                            //This section is for ID which is of type 'FUNC. It has a vector that stores function argtypes. 
+                            SymbolInfo *newSymb = new SymbolInfo(nameID,"ID");
+                            newSymb->setIDType("FUNC");
+                            newSymb->setFuncRet($1->getVarType()); 
+                            table.Insert(newSymb); 
+                            function_arg_types.clear(); 
+                        }
+                    }
+                    | type_specifier ID LPAREN error
+                    {
+                        errf << "Line# " << line_count << ": Syntax error at parameter list of function definition\n"; 
                     }
                     ;
 func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement
                 {
-                    logfile << "Line " << line_count << " : func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement\n";
+                    logfile << "func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement\n";
                     string nameID = $2->getname(), IDtype = "FUNC";
-                    string typeOfFunc = $1->getVarType();  
-                    logfile << nameID << "\n"; 
+                    string typeOfFunc = $1->getVarType();   
 
                     SymbolInfo *curr = table.LookUp2(nameID, IDtype); 
                     if(curr){
                         if(curr->isFuncDefined()){
                             err_sem++; 
-                            errf << "Error at line "<<  line_count << "Function "<< nameID <<" already defined\n";
+                            cout << "Error at line "<<  line_count << "Function "<< nameID <<" already defined\n";
                         }
                         else if(curr->getFuncRet() != typeOfFunc){
                             err_sem++; 
-                            errf << "Error at line "<<  line_count << "Function "<< nameID << " :return type does not match declaration\n";
+                            cout << "Error at line "<<  line_count << "Function "<< nameID << " :return type does not match declaration\n";
                         }
                         else if(curr->List_params.size() != function_arg_types.size()){
                             err_sem++; 
-                            errf << "Error at line "<<  line_count << "Function " << nameID <<  " :parameter list does not match declaration\n";
+                            cout << "Error at line "<<  line_count << "Function " << nameID <<  " :parameter list does not match declaration\n";
                         }
                         else{
                             for(int i = 0; i < curr->List_params.size(); ++i ){
                                 if( curr->List_params[i] != function_arg_types[i]){
                                     err_sem++; 
-                                    errf << "Error at line " << line_count << "Function "<< nameID << " :argument mismatch\n"; 
+                                    cout << "Error at line " << line_count << "Function "<< nameID << " :argument mismatch\n"; 
                                     break; 
                                 }
                             }
@@ -149,16 +168,47 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
                         for(int i =0; i <  function_arg_types.size(); ++i){
                             newSymb->push_params(function_arg_types[i]);
                         }
-                    }
+                        table.Insert(newSymb);
+                    } 
                     args_ID_cnt =0;
                     function_arg_types.clear(); 
+                }
+                | type_specifier ID LPAREN RPAREN compound_statement
+                {
+                    logfile << "func_definition : type_specifier ID LPAREN RPAREN compound_statement\n";
+                    string nameID = $2->getname(), IDtype = "FUNC";
+                    string typeOfFunc = $1->getVarType();   
+
+                    SymbolInfo *curr = table.LookUp2(nameID, IDtype); 
+                    if(curr){
+                        if(curr->isFuncDefined()){
+                            err_sem++; 
+                            errf << "Line# "<<  line_count << ": Function '"<< nameID <<"'' already defined\n";
+                        }
+                        else if(curr->getFuncRet() != typeOfFunc){
+                            err_sem++; 
+                            cout << "Line# "<<  line_count << ": Function return type does not match declaration\n";
+                        }
+                        else if(curr->List_params.size() != function_arg_types.size()){
+                            err_sem++; 
+                            cout << "Line# " <<  line_count << "Function parameter list does not match declaration\n";
+                        }
+                    }
+                    else{
+                        SymbolInfo *newSymb = new SymbolInfo(nameID, "ID");
+                        newSymb->setFuncDefined(); 
+                        newSymb->setIDType("FUNC");
+                        newSymb->setFuncRet(typeOfFunc); 
+                        table.Insert(newSymb);
+                    } 
+                    args_ID_cnt =0;
+                    function_arg_types.clear();
                 }
                 ;
 parameter_list : parameter_list COMMA type_specifier ID
                 {
-                    logfile << "Line " <<  line_count << " : parameter_list  : parameter_list COMMA type_specifier ID\n";
+                    logfile << "parameter_list  : parameter_list COMMA type_specifier ID\n";
                     string nameID = $4->getname(); 
-                    logfile << nameID << "\n"; 
                     //This one is from $3
                     function_arg_types.pb(var_type);
                     args_ID_cnt++; 
@@ -169,15 +219,14 @@ parameter_list : parameter_list COMMA type_specifier ID
                 }
                 | parameter_list COMMA type_specifier
                 { 
-                    logfile << "Line " << line_count << " : parameter_list  : parameter_list COMMA type_specifier\n";
+                    logfile << "parameter_list  : parameter_list COMMA type_specifier\n";
                     function_arg_types.pb($3->getVarType()); 
                 }
                 | type_specifier ID
                 {
-                    logfile << "Line " << line_count << " : parameter_list  : type_specifier ID\n";
+                    logfile << "parameter_list  : type_specifier ID\n";
                     string nameID = $2->getname();
                     string IDtype = "VAR";  
-                    logfile << nameID << "\n";
 
                     function_arg_types.pb(var_type); 
                     args_ID_cnt++; 
@@ -188,12 +237,8 @@ parameter_list : parameter_list COMMA type_specifier ID
                 }
                 | type_specifier
                 {
-                    logfile << line_count << " : parameter_list  : type_specifier\n";
+                    logfile << "parameter_list  : type_specifier\n";
                     function_arg_types.pb(var_type);
-                }
-                |
-                {
-                    cout << "Empty parameter list.\n"; 
                 }
                 ;
 compound_statement : LCURL
@@ -201,42 +246,43 @@ compound_statement : LCURL
                     table.EnterScope(); 
                     for(int i =0 ; i < params.size(); ++i) table.Insert(params[i]);
                     params.clear(); 
-                } statements {   } RCURL { table.ExitScope(); }
+                } statements {   } RCURL { }
                 {
-                    logfile << "Line " << line_count << " : compound_statement : LCURL statements RCURL\n";   
+                    logfile << "compound_statement : LCURL statements RCURL\n";
+                    table.PrintAllScopeTables(logfile);
+                    table.ExitScope();    
                 }
                 | LCURL RCURL
                 {
-                    logfile << "Line " << line_count << " : compound_statement : LCURL RCURL\n";
+                    logfile << "compound_statement : LCURL RCURL\n";
                 }
                 ;
 var_declaration : type_specifier declaration_list SEMICOLON
                 {
-                    logfile << "Line " << line_count << " : var_declaration : type_specifier declaration_list SEMICOLON\n";
+                    logfile << "var_declaration : type_specifier declaration_list SEMICOLON\n";
                 }
-                | type_specifier declaration_list error
+                | type_specifier error SEMICOLON
                 {
-                    err_sem++; 
-                    errf << "Error at line " << line_count << "; missing\n"; 
+                    errf << "Line# " << line_count << ": Syntax error at declaration list of variable declaration\n"; 
                 }
                 ;
 type_specifier : INT
                 {
-                    logfile << "Line " << line_count << " : type_specifier : INT\n";
+                    logfile << "type_specifier  : INT\n";
                     var_type = "INT";
                     SymbolInfo *symb = new SymbolInfo(var_type);
                     $$ = symb;  
                 }
                 | FLOAT
                 {
-                    logfile << "Line " << line_count << " : type_specifier : FLOAT\n";
+                    logfile << "type_specifier  : FLOAT\n";
                     var_type = "FLOAT";
                     SymbolInfo *symb = new SymbolInfo(var_type);
                     $$ = symb; 
                 }
                 | VOID
                 {
-                    logfile << "Line " << line_count << " : type_specifier: VOID\n";
+                    logfile << "type_specifier  : VOID\n";
                     var_type = "VOID"; 
                     SymbolInfo *symb = new SymbolInfo(var_type);
                     $$ = symb;
@@ -244,18 +290,17 @@ type_specifier : INT
                 ;
 declaration_list : declaration_list COMMA ID
                 {
-                    logfile << "Line " << line_count << " : declaration_list : declaration_list COMMA ID\n"; 
+                    logfile << "declaration_list : declaration_list COMMA ID\n"; 
                     string nameID = $3->getname();
                     string IDtype = "VAR"; 
-                    logfile << nameID << "\n"; 
                     if(var_type == "VOID"){
                         err_sem++; 
-                        errf << "Error at line " << line_count << " :variable type can't be void\n"; 
+                        errf << "Line# " << line_count << ": variable cant be void\n"; 
                     }
                     else{
                         if( table.LookUp2(nameID,IDtype) ){
-                            err_sem++; 
-                            errf << "Error at line " << line_count << ": Variable "<< nameID <<" already declared\n";
+                            err_sem++;
+                            errf << "Line# " << line_count << ": variable '" << nameID << "' already declared\n";
                         }
                         else{
                             SymbolInfo *varID = new SymbolInfo(nameID,$3->gettype()); 
@@ -267,13 +312,11 @@ declaration_list : declaration_list COMMA ID
                 }
                 | declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
                 {
-                    logfile << "Line " << line_count << " : declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n";
+                    logfile << "declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n";
                     string nameID = $3->getname(), arr_sz_str = $5->getname(); 
-                    logfile << nameID << "\n"; 
-                    logfile << arr_sz_str << "\n";   
                     if(var_type == "VOID"){
                         err_sem++; 
-                        errf << "Error at line " << line_count << " :array type can't be void\n"; 
+                        errf << "Line# " << line_count << ": array type cannot be void\n"; 
                     }
                     else{
                         int array_sz = stoi(arr_sz_str); 
@@ -292,18 +335,17 @@ declaration_list : declaration_list COMMA ID
                 }
                 | ID
                 {
-                    logfile << "Line " << line_count << " : declaration_list : ID\n";
+                    logfile << "declaration_list : ID\n";
                     string nameID = $1->getname(); 
                     string IDtype =  "VAR"; 
-                    logfile << nameID << "\n"; 
                     if( var_type ==  "VOID"){
                         err_sem++; 
-                        errf << "Error at line " << line_count << " :variable type can't be void\n";
+                        errf << "Line# " << line_count << ": variable cant be void\n";
                     }
                     else{
                         if( table.LookUp2(nameID,IDtype) ){
                             err_sem++; 
-                            errf << "Error at line " << line_count << ": Variable "<< nameID <<" already declared\n";
+                            errf << "Line# " << line_count << ": variable '" << nameID <<  "' already declared\n";
                         }
                         else{
                             SymbolInfo *varID = new SymbolInfo(nameID,$1->gettype()); 
@@ -315,13 +357,11 @@ declaration_list : declaration_list COMMA ID
                 }
                 | ID LTHIRD CONST_INT RTHIRD
                 {
-                    logfile << "Line " << line_count << " : declaration_list : ID LTHIRD CONST_INT RTHIRD\n";
-                    string nameID = $1->getname(), arr_sz_str = $3->getname(); 
-                    logfile << nameID << "\n"; 
-                    logfile << arr_sz_str << "\n";   
+                    logfile << "declaration_list : ID LTHIRD CONST_INT RTHIRD\n";
+                    string nameID = $1->getname(), arr_sz_str = $3->getname();    
                     if(var_type == "VOID"){
                         err_sem++; 
-                        errf << "Error at line " << line_count << " :array type can't be void\n"; 
+                        errf << "Line# " << line_count << ": array type cannot be void\n";
                     }
                     else{
                         int array_sz = stoi(arr_sz_str); 
@@ -341,93 +381,92 @@ declaration_list : declaration_list COMMA ID
                 ;
 statements : statement
             {
-                logfile << "Line " << line_count << " : statements : statement\n";
+                logfile << "statements : statement\n";
             }
             | statements statement
             {
-                logfile << "Line " << line_count << " : statements : statements statement\n";
+                logfile << "statements : statements statement\n";
             }
             ;
 statement : var_declaration
             {
-                logfile << "Line " << line_count << " : statement : var declaration\n";
+                logfile << "statement : var declaration\n";
             }
             | expression_statement
             {
-                logfile << "Line " << line_count << " : statement : expression_satement\n";
+                logfile << "statement : expression_satement\n";
             }
             | compound_statement
             {
-                logfile << "Line " << line_count << " : statement : compound_satement\n";
+                logfile << "statement : compound_satement\n";
             }
             | FOR LPAREN expression_statement expression_statement expression RPAREN statement
             {
-                logfile << "Line " << line_count << " : statement : FOR LPAREN expression statement expression statement expression RPAREN statement\n";
+                logfile << "statement : FOR LPAREN expression statement expression statement expression RPAREN statement\n";
             }
             | IF LPAREN expression RPAREN statement %prec LOWER_THAN_ELSE 
             {
-                logfile << "Line " << line_count << " : statement : IF LPAREN expression RPAREN statement\n";
+                logfile << "statement : IF LPAREN expression RPAREN statement\n";
             }
             | IF LPAREN expression RPAREN statement ELSE statement
             {
-                logfile << "Line " << line_count << " : statement : IF LPAREN expression RPAREN statement ELSE statement\n";
+                logfile << "statement : IF LPAREN expression RPAREN statement ELSE statement\n";
             }
             | WHILE LPAREN expression RPAREN statement
             {
-                logfile << "Line " << line_count << " : statement : WHILE LPAREN expression RPAREN statement\n";
+                logfile << "statement : WHILE LPAREN expression RPAREN statement\n";
             }
             | PRINTLN LPAREN ID RPAREN SEMICOLON
             {
-                logfile << "Line " << line_count << " : statement : PRINTLN LPAREN ID RPAREN SEMICOLON\n";
+                logfile << "statement : PRINTLN LPAREN ID RPAREN SEMICOLON\n";
             }
             | RETURN expression SEMICOLON
             {
-                logfile << "Line " << line_count << " : statement : RETURN expression SEMICOLON\n";
+                logfile << "statement : RETURN expression SEMICOLON\n";
             }
             | PRINTLN LPAREN ID RPAREN error
             {
-                errf << "Error at line " << line_count << "; missing\n"; 
+                errf << "Line# " << line_count << ": semicolon missing\n"; 
                 err_sem++; 
             }
             | RETURN expression error
             {
                 err_sem++; 
-                errf << "Error at line " << line_count<< "; missing\n"; 
+                errf << "Line# " << line_count << ": semicolon missing\n";  
             }
             ;
 expression_statement : SEMICOLON
                 {
-                    logfile << "Line " << line_count << " : expression_statement : SEMICOLON\n";
+                    logfile << "expression_statement : SEMICOLON\n";
                 }
                 | expression SEMICOLON
                 {
-                    logfile << "Line " << line_count << " : expression_statement : expression SEMICOLON\n";
+                    logfile << "expression_statement : expression SEMICOLON\n";
                 }
-                | expression error
+                | error
                 {
                     err_sem++; 
-                    errf << "Error at line " << line_count<< "; missing\n"; 
+                    cout << "here\n"; 
+                    errf << "Line# "<< line_count << ": Syntax error at expression of expression statement\n"; 
                 }
                 ;
 variable : ID
         {
-            logfile << "Line " << line_count << " : variable : ID\n";
+            logfile << "variable : ID\n";
             string nameID = $1->getname(), IDtype = "VAR"; 
-            logfile << nameID << "\n";
             SymbolInfo *id = table.LookUp2(nameID,IDtype); 
             if(id){
                 $$ = id;
             }
             else{
                 err_sem++; 
-                errf << "Error at line " << line_count << " : " << nameID << " doesn't exist\n"; 
+                cout << "Line# "<< line_count << ": Undeclared variable'" << nameID << "'\n";   
             }
         }
         | ID LTHIRD expression RTHIRD
         {
-            logfile << "Line " << line_count << " : variable : ID LTHIRD expression RTHIRD\n";
-            string nameID = $1->getname(), IDtype = "ARA"; 
-            logfile << nameID << "\n"; 
+            logfile << "variable : ID LTHIRD expression RTHIRD\n";
+            string nameID = $1->getname(), IDtype = "ARA";  
             SymbolInfo *curr = table.LookUp2(nameID,IDtype);
             if(curr){
                 if(curr->getAraySize() <= $3->all_ints[0]){
@@ -445,13 +484,13 @@ variable : ID
             } 
             else{
                 err_sem++; 
-                errf << "Error at line " << line_count << " : " << nameID << " doesn't exist\n"; 
+                cout << "Line# " <<  line_count << ": Undeclared variable '" << nameID << "'\n"; 
             }
         }
         ;
 expression : logic_expression
             {
-                logfile << "Line " << line_count << " : expression : logic_expression\n";
+                logfile << "expression  : logic_expression\n";
                 $$ = $1;
                 $$->all_floats.pb(0); 
                 $$->all_ints.pb(0);
@@ -460,7 +499,7 @@ expression : logic_expression
             }
             | variable ASSIGNOP logic_expression
             {
-                logfile << "Line " << line_count << " : expression : variable ASSIGNOP logic_expression\n";
+                logfile << "expression  : variable ASSIGNOP logic_expression\n";
                 string varType = $1->getVarType();
                 string varType2 = $3->getVarType(); 
                 string IDtype = $1->getIDType();
@@ -514,14 +553,14 @@ expression : logic_expression
             ;
 logic_expression : rel_expression
                 {
-                    logfile << "Line " << line_count << " : logic_expression : rel_expression\n";
+                    logfile << "logic_expression : rel_expression\n";
 					$$ = $1;
 					$$->all_ints.pb(0);
 					$$->all_floats.pb(0);
                 }
                 | rel_expression LOGICOP rel_expression
                 {
-                    logfile << "Line " << line_count << " : logic_expression : rel_expression LOGICOP rel_expression\n";
+                    logfile << "logic_expression : rel_expression LOGICOP rel_expression\n";
                     SymbolInfo *curr = new SymbolInfo("INT");
                     string logicOp = $2->getname(); 
                     string first_var = $1->getVarType(), second_var = $3->getVarType();
@@ -606,14 +645,14 @@ logic_expression : rel_expression
                 ;
 rel_expression : simple_expression
                 {
-                    logfile << "Line " << line_count << " : rel_expression : simple_expression\n";
+                    logfile << "rel_expression  : simple_expression\n";
                     $$ = $1;
                     $$->all_floats.pb(0);
                     $$->all_ints.pb(0); 
                 }
                 | simple_expression RELOP simple_expression
                 {
-                    logfile << "Line " << line_count << " : rel_expression : simple_expression RELOP simple_expression\n";
+                    logfile << "rel_expression : simple_expression RELOP simple_expression\n";
                     SymbolInfo *curr = new SymbolInfo("INT"); 
                     string varType1 = $1->getVarType(), varType2 = $3->getVarType(); 
                     string relOp = $2->getname(); 
@@ -676,15 +715,15 @@ rel_expression : simple_expression
                 ;
 simple_expression : term
                 {
-                    logfile << "Line " << line_count << " : simple_expression : term\n";
+                    logfile << "simple_expression : term\n";
                     $$ = $1; 
-                    cout << "Simple exp: term: " <<  $$->getname() << "\n"; 
+                    // cout << "Simple exp: term: " <<  $$->getname() << "\n"; 
                     $$->all_ints.pb(0); $$->all_floats.pb(0);
                 }
                 | simple_expression ADDOP term
                 {
                     string addop = $2->getname(); 
-                    logfile << "Line " << line_count << " : simple_expression ADDOP term\n";
+                    logfile << "simple_expression : simple_expression ADDOP term\n";
                     string ID1 = $1->getIDType(), ID2 = $3->getIDType(); 
                     string var_1 = $1->getVarType(), var_2 = $3->getVarType(); 
                     SymbolInfo *curr = new SymbolInfo("INT"); //will change accordingly.
@@ -799,14 +838,14 @@ simple_expression : term
                 ;
 term : unary_expression
                 {
-                    logfile << "Line " << line_count << " : term : unary_expression\n";
+                    logfile << "term :  unary_expression\n";
                     $$ = $1; 
                     $$->all_ints.pb(0); 
                     $$->all_floats.pb(0);
                 }
                 | term MULOP unary_expression
                 {
-                    logfile << "Line " << line_count << " : term : term MULOP unary_expression\n";
+                    logfile << "term : term MULOP unary_expression\n";
                     string mulop_type = $2->getname();
                     string first_T = $1->getIDType(), second_T  = $3->getIDType(); 
                     string first_var = $1->getVarType(), second_var = $3->getVarType(); 
@@ -916,7 +955,7 @@ term : unary_expression
                                     else {
                                         if($3->all_floats[0] == 0 ){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n";  
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_floats[0] / $3->all_floats[0];
@@ -928,7 +967,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("FLOAT"); 
                                         if($3->all_floats[0] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n";
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[0] / $3->all_floats[0];
@@ -938,7 +977,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("INT"); 
                                         if($3->all_ints[0] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[0] / $3->all_ints[0];
@@ -953,7 +992,7 @@ term : unary_expression
                                     if(second_var == "INT") {
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_floats[0] / $3->all_ints[ind2];
@@ -961,7 +1000,7 @@ term : unary_expression
                                     else {
                                         if($3->all_floats[ind2] == 0){ 
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n";
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_floats[0] / $3->all_floats[ind2];
@@ -973,7 +1012,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("FLOAT"); 
                                         if($3->all_floats[ind2] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[0] / $3->all_floats[ind2];
@@ -983,7 +1022,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("INT"); 
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[0] / $3->all_ints[ind2];
@@ -1000,7 +1039,7 @@ term : unary_expression
                                     if(second_var == "INT") {
                                         if($3->all_ints[0] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity(); 
                                         }
                                         else curr->all_floats[0] = $1->all_floats[ind1] / $3->all_ints[0];
@@ -1008,7 +1047,7 @@ term : unary_expression
                                     else {
                                         if($3->all_floats[0] == 0 ){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_floats[ind1] / $3->all_floats[0];
@@ -1020,7 +1059,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("FLOAT"); 
                                         if($3->all_floats[0] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n";
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[ind1] / $3->all_floats[0];
@@ -1030,7 +1069,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("INT"); 
                                         if($3->all_ints[0] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[ind1] / $3->all_ints[0];
@@ -1045,7 +1084,7 @@ term : unary_expression
                                     if(second_var == "INT") {
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_floats[ind1] / $3->all_ints[ind2];
@@ -1053,7 +1092,7 @@ term : unary_expression
                                     else {
                                         if($3->all_floats[ind2] == 0){ 
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_floats[ind1] / $3->all_floats[ind2];
@@ -1065,7 +1104,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("FLOAT"); 
                                         if($3->all_floats[ind2] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[ind1] / $3->all_floats[ind2];
@@ -1075,7 +1114,7 @@ term : unary_expression
                                         SymbolInfo *curr = new SymbolInfo("INT"); 
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[ind1] / $3->all_ints[ind2];
@@ -1087,7 +1126,7 @@ term : unary_expression
                     }
                     else if(mulop_type == "%"){
                         if(first_var == "FLOAT" || second_var == "FLOAT"){
-                            errf << "Error at line " << line_count <<" : Unsuported operand for mod operator\n";
+                            errf << "Line# " << line_count << ": Operands of modulus must be integers\n";
                             err_sem++;  
                         }
                         else{
@@ -1109,7 +1148,7 @@ term : unary_expression
                 ;
 unary_expression : ADDOP unary_expression
                     {
-                        logfile << "Line " << line_count << " : unary_expression : ADDOP unary_expression\n";
+                        logfile << "unary_expression : ADDOP unary_expression\n";
 					    if($1->getname() == "-"){
 						    if($2->getVarType() == "VAR"){
 							    $2->all_ints[0] = (-1)*($2->all_ints[0]);
@@ -1122,7 +1161,7 @@ unary_expression : ADDOP unary_expression
                     }
                     | NOT unary_expression
                     {
-                        logfile << "Line " << line_count << " : unary_expression : ADDOP unary_expression\n";
+                        logfile << "unary_expression : NOT unary_expression\n";
 					    SymbolInfo *var = new SymbolInfo("INT");
                         var->setIDType("VAR");
                         int val; 
@@ -1140,7 +1179,7 @@ unary_expression : ADDOP unary_expression
                     }
                     | factor
                     {
-                        logfile << "Line " << line_count << " : unary_expression : factor\n";
+                        logfile << "unary_expression : factor\n";
                         $$ = $1;
                         $$->all_ints.pb(0);
                         $$->all_floats.pb(0);
@@ -1148,23 +1187,22 @@ unary_expression : ADDOP unary_expression
                     ;
 factor : variable
         {
-            logfile << "Line " << line_count << " : factor : variable\n"; 
+            logfile << "factor  : variable\n"; 
         }
         | ID LPAREN argument_list RPAREN
         {
-            logfile << "Line " << line_count << " : factor : ID LPAREN argument_list RPAREN\n";
-            string funcName = $1->getname();
-            logfile << funcName << "\n"; 
+            logfile << "factor : ID LPAREN argument_list RPAREN\n";
+            string funcName = $1->getname(); 
             string IDType = "FUNC";
             if(!table.LookUp2(funcName,IDType)){
-                errf << "Error at line " << line_count <<" : Function " << funcName << "doesn't exist\n";
+                errf << "Line#" << line_count << ": Undeclared function'" << funcName <<  "'\n";
                 err_sem++; 
             } 
             else{
                 string getReturn = $1->getFuncRet(); 
                 if(getReturn == "VOID"){
                     err_sem++; 
-                    errf << "Error at line " << line_count <<" : Function " << funcName << "return void.\n";
+                    errf << "Line# " << line_count << ": Void cannot be used in expression\n";
                 }
                 else{
                     SymbolInfo *curr = new SymbolInfo(getReturn);
@@ -1178,13 +1216,12 @@ factor : variable
         }
         | LPAREN expression RPAREN
         {
-            logfile << "Line " << line_count << " : factor : LPAREN expression RPAREN\n";
+            logfile << "factor : LPAREN expression RPAREN\n";
             $$ = $2;
         }
         | CONST_INT
         {
-            logfile << "Line " << line_count << " : factor : CONST_INT\n";
-			logfile << $1->getname() << "\n"; 
+            logfile << "factor  : CONST_INT\n";
 			$1->setVarType("INT");
             $1->setIDType("VAR"); 
 			$1->all_ints[0]= stoi($1->getname());
@@ -1192,8 +1229,7 @@ factor : variable
         }
         | CONST_FLOAT
         {
-            logfile << "Line " << line_count << " : factor : CONST_FLOAT\n";
-            logfile << $1->getname() << "\n"; 
+            logfile << "factor : CONST_FLOAT\n";
 			$1->setVarType("FLOAT");
             $1->setIDType("VAR"); 
 			$1->all_floats[0]= stoi($1->getname());
@@ -1201,7 +1237,7 @@ factor : variable
         }
         | variable INCOP
         {
-            logfile << "Line " << line_count << " : factor : variable INCOP\n";
+            logfile << "factor : variable INCOP\n";
             if($1->getIDType() == "VAR"){
                 if($1->getVarType() == "INT"){
                     $1->all_ints[0]++;
@@ -1223,7 +1259,7 @@ factor : variable
         }
         | variable DECOP
         {
-            logfile << "Line " << line_count << " : factor : variable DECOP\n";
+            logfile << "factor : variable DECOP\n";
             if($1->getIDType() == "VAR"){
                 if($1->getVarType() == "INT"){
                     $1->all_ints[0]--;
@@ -1246,7 +1282,7 @@ factor : variable
         ;
 argument_list : arguments
                 {
-                    logfile << "Line " << line_count << " : argument_list : arguments\n";
+                    logfile << "argument_list : arguments\n";
                 }
                 |
                 {
@@ -1255,11 +1291,11 @@ argument_list : arguments
                 ;
 arguments : arguments COMMA logic_expression
                 {
-                    logfile << "Line " << line_count << " : arguments : arguments COMMA logic_expression\n";
+                    logfile << "arguments : arguments COMMA logic_expression\n";
                 }
                 | logic_expression
                 {
-                    logfile << "Line " << line_count << " : arguments : logic_expression\n";
+                    logfile << "arguments : logic_expression\n";
                 }
                 ;
 
