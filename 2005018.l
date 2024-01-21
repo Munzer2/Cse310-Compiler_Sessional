@@ -37,50 +37,122 @@ RedundantDec ({DIGIT}?\.)+{const_float}
 
 "if" {
     logfile << "Line# " << line_count << ": Token <IF> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"IF");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("IF"); 
+    yylval.symbVal = ch;
     return IF;
     }
 "else" {
     logfile << "Line# " << line_count << ": Token <ELSE> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"ELSE");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("ELSE"); 
+    yylval.symbVal = ch;
     return ELSE;
     }
 "for" {
     logfile << "Line# " << line_count << ": Token <FOR> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"FOR");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("FOR"); 
+    yylval.symbVal = ch;
     return FOR;
     }
 "do" {
     logfile << "Line# " << line_count << ": Token <DO> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"DO");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("DO"); 
+    yylval.symbVal = ch;
     return DO;
     }
 "int" {
     logfile << "Line# " << line_count << ": Token <INT> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"INT");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("INT");  
+    yylval.symbVal = ch;
     return INT;
     }
 "float" {
     logfile << "Line# " << line_count << ": Token <FLOAT> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"FLOAT");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("FLOAT"); 
+    yylval.symbVal = ch;
     return FLOAT;
     }
 "void" {
     logfile << "Line# " << line_count << ": Token <VOID> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"VOID");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("VOID"); 
+    yylval.symbVal = ch;
     return VOID;
     }
 "while" {
     logfile << "Line# " << line_count << ": Token <WHILE> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"WHILE");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("WHILE"); 
+    yylval.symbVal = ch;
     return WHILE;
     }		
 "char" {
     logfile << "Line# " << line_count << ": Token <CHAR> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"CHAR");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    yylval.symbVal = ch;
+    ch->node->setRule("CHAR");
     return CHAR;
     }
 "double" {
     logfile << "Line# " << line_count << ": Token <DOUBLE> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"DOUBLE");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("DOUBLE");
+    yylval.symbVal = ch;
     return DOUBLE;
     }		
 "return" {
     logfile << "Line# " << line_count << ": Token <RETURN> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"RETURN");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("RETURN");
+    yylval.symbVal = ch;
     return RETURN;
     }
 "continue" {
     logfile << "Line# " << line_count << ": Token <CONTINUE> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"CONTINUE");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("CONTINUE");
+    yylval.symbVal = ch;
     return CONTINUE;
     }	
 
@@ -88,14 +160,20 @@ RedundantDec ({DIGIT}?\.)+{const_float}
     string curr(yytext); 
     SymbolInfo *symbol = new SymbolInfo(curr,"ADDOP");
     logfile << "Line# " << line_count << ": Token <ADDOP> Lexeme " << yytext << " found\n";
-    yylval.symbVal = symbol; 
+    symbol->node->setfirstLine(line_count);
+    symbol->node->setlastLine(line_count);
+    symbol->node->setRule("ADDOP");
+    yylval.symbVal = symbol;  
     return ADDOP;  
 }
 
 {MULOP} {
     string curr(yytext); 
     SymbolInfo *symbol = new SymbolInfo(curr,"MULOP");
-    logfile << "Line# " << line_count << ": Token <MULOP> Lexeme " << yytext << " found\n"; 
+    logfile << "Line# " << line_count << ": Token <MULOP> Lexeme " << yytext << " found\n";
+    symbol->node->setfirstLine(line_count);
+    symbol->node->setlastLine(line_count); 
+    symbol->node->setRule("MULOP");
     yylval.symbVal = symbol;
     return MULOP;  
 }
@@ -105,6 +183,9 @@ RedundantDec ({DIGIT}?\.)+{const_float}
     string curr(yytext);
     // cout << curr << "\n";  
     SymbolInfo *id = new SymbolInfo(curr,"ID");
+    id->node->setfirstLine(line_count);
+    id->node->setlastLine(line_count);
+    id->node->setRule("ID"); 
     yylval.symbVal = id; 
     logfile << "Line# " << line_count << ": Token <ID> Lexeme " << curr << " found\n";
     return ID; 
@@ -114,13 +195,19 @@ RedundantDec ({DIGIT}?\.)+{const_float}
                 string curr(yytext); 
                 // cout << curr << "\n"; 
 			    SymbolInfo *num =new SymbolInfo(curr,"CONST_INT"); 
-                yylval.symbVal = num; 
+                num->node->setfirstLine(line_count);
+                num->node->setlastLine(line_count);
+                num->node->setRule("CONST_INT"); 
+                yylval.symbVal = num;  
                 logfile << "Line# " << line_count << ": Token <CONST_INT> Lexeme " << yytext << " found\n";
                 return CONST_INT;
 		}
 {const_float} {
                 string curr(yytext); 
-	            SymbolInfo *num =new SymbolInfo(curr,"CONST_FLOAT"); 
+	            SymbolInfo *num =new SymbolInfo(curr,"CONST_FLOAT");
+                num->node->setfirstLine(line_count);
+                num->node->setlastLine(line_count); 
+                num->node->setRule("CONST_FLOAT");
                 yylval.symbVal = num; 
                 logfile << "Line# " << line_count << ": Token <CONST_FLOAT> Lexeme " << yytext << " found\n";
                 return CONST_FLOAT;
@@ -130,6 +217,10 @@ RedundantDec ({DIGIT}?\.)+{const_float}
 "&&"|"||" {
     string temp(yytext);
 	SymbolInfo *ch = new SymbolInfo(temp, (string)"LOGICOP");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("LOGICOP");
+    yylval.symbVal = ch;
     logfile << "Line# " << line_count << ": Token <LOGICOP> Lexeme " << yytext << " found\n";
     return LOGICOP;
 }
@@ -137,52 +228,122 @@ RedundantDec ({DIGIT}?\.)+{const_float}
 "<"|">"|"<="|">="|"!=" {
     string temp(yytext);
 	SymbolInfo *ch = new SymbolInfo(temp, (string)"RELOP");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("RELOP");
+    yylval.symbVal = ch;
     logfile << "Line# " << line_count << ": Token <RELOP> Lexeme " << yytext << " found\n";
     return RELOP;
 }
 
 "--"|"++" {
     logfile << "Line# " << line_count << ": Token <INCOP> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"INCOP");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("INCOP"); 
+    yylval.symbVal = ch;
     return INCOP;
     } 
 "=" {
     logfile << "Line# " << line_count << ": Token <ASSIGNOP> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"ASSIGNOP");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("ASSIGNOP");
+    yylval.symbVal = ch;
     return ASSIGNOP;
     }
 "!" {
     logfile << "Line# " << line_count << ": Token <NOT> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"NOT");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("NOT");
+    yylval.symbVal = ch;
     return NOT;
     }
 "(" {
     logfile << "Line# " << line_count << ": Token <LPAREN> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"LPAREN");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("LPAREN");
+    yylval.symbVal = ch;
     return LPAREN;
     }
 ")" {
     logfile << "Line# " << line_count << ": Token <RPAREN> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"RPAREN");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("RPAREN");
+    yylval.symbVal = ch;
     return RPAREN;
     }
 "{" {
     logfile << "Line# " << line_count << ": Token <LCURL> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"LCURL");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count);
+    ch->node->setRule("LCURL"); 
+    yylval.symbVal = ch;
     return LCURL;
     }
 "}" {
     logfile << "Line# " << line_count << ": Token <RCURL> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"RCURL");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("RCURL");
+    yylval.symbVal = ch;
     return RCURL;
     }
 "[" {
     logfile << "Line# " << line_count << ": Token <LTHIRD> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"LTHIRD");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("LTHIRD");
+    yylval.symbVal = ch;
     return LTHIRD;
     }
 "]" {
     logfile << "Line# " << line_count << ": Token <RTHIRD> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"RTHIRD");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("RTHIRD");
+    yylval.symbVal = ch;
     return RTHIRD;
     }
 "," {
     logfile << "Line# " << line_count << ": Token <COMMA> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"COMMA");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("COMMA");
+    yylval.symbVal = ch;
     return COMMA;
     }
 ";" {
     logfile << "Line# " << line_count << ": Token <SEMICOLON> Lexeme " << yytext << " found\n";
+    string temp(yytext);
+	SymbolInfo *ch = new SymbolInfo(temp, (string)"SEMICOLON");
+    ch->node->setfirstLine(line_count);
+    ch->node->setlastLine(line_count); 
+    ch->node->setRule("SEMICOLON");
+    yylval.symbVal = ch;
     return SEMICOLON;
     }
 
@@ -216,7 +377,7 @@ RedundantDec ({DIGIT}?\.)+{const_float}
 }
 
 <<EOF>> { 
-	exit(0); 
+    yyterminate();  
 }
 
 %%
