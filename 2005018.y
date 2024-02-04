@@ -27,7 +27,7 @@ int args_ID_cnt = 0;
 
 void yyerror(const char *s){
     cout << "Error: " << s << "\n"; 
-    cout << line_count << "\n";  
+    // cout << line_count << "\n";  
 }
 %}
 
@@ -63,9 +63,7 @@ start: program
             logfile << "Total Errors: " << err_sem << "\n"; 
 
             $$->node->printParseTree($$->node,0,parsefile); 
-            for( auto x : $$->node->children){
-                cout << x->getRule() << "\n"; 
-            }
+            ///This is the actual node found from parsing the input. Now I want to generate the corresponding assembly code from this root node.
 		}
 		;
 
@@ -137,6 +135,7 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
                         if(check){
                             errf << "Line# " << line_count << ": Function '"<< nameID <<"' already declared\n"; 
                             err_sem++; 
+                            cout << "here\n"; 
                         }
                         else{
                             //This section is for ID which is of type 'FUNC. It has a vector that stores function argtypes. 
@@ -186,12 +185,11 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
                     $$ = new SymbolInfo("func_definition", "grammar"); 
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement","NULL");
                     $$->node->addChild($1->node); 
-                    $$->node->addChild($2->node); 
+                    $$->node->addChild($2->node);
                     $$->node->addChild($3->node); 
                     $$->node->addChild($4->node); 
                     $$->node->addChild($5->node);
                     $$->node->addChild($6->node);
-
 
                     logfile << "func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statement\n";
                     string nameID = $2->getname(), IDtype = "FUNC";
@@ -199,37 +197,18 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
 
                     SymbolInfo *curr = table.LookUp2(nameID, IDtype); 
                     if(curr){
-                        if(curr->isFuncDefined()){
-                            err_sem++; 
-                            cout << "Error at line "<<  line_count << "Function "<< nameID <<" already defined\n";
-                        }
-                        else if(curr->getFuncRet() != typeOfFunc){
-                            err_sem++; 
-                            cout << "Error at line "<<  line_count << "Function "<< nameID << " :return type does not match declaration\n";
-                        }
-                        else if(curr->List_params.size() != function_arg_types.size()){
-                            err_sem++; 
-                            cout << "Error at line "<<  line_count << "Function " << nameID <<  " :parameter list does not match declaration\n";
-                        }
-                        else{
-                            for(int i = 0; i < curr->List_params.size(); ++i ){
-                                if( curr->List_params[i] != function_arg_types[i]){
-                                    err_sem++; 
-                                    cout << "Error at line " << line_count << "Function "<< nameID << " :argument mismatch\n"; 
-                                    break; 
-                                }
-                            }
-                        }
+                        err_sem++; 
+                        errf << "Line# "<<  line_count << " : Redefinition of function " << nameID << "\n" ;
                     }
                     else{
-                        SymbolInfo *newSymb = new SymbolInfo(nameID, "ID");
-                        newSymb->setFuncDefined(); 
-                        newSymb->setIDType("FUNC");
-                        newSymb->setFuncRet(typeOfFunc); 
+                        // SymbolInfo *newSymb = new SymbolInfo(nameID, "ID");
+                        $2->setFuncDefined(); 
+                        $2->setIDType("FUNC");
+                        $2->setFuncRet(typeOfFunc); 
                         for(int i =0; i <  function_arg_types.size(); ++i){
-                            newSymb->push_params(function_arg_types[i]);
+                            $2->push_params(function_arg_types[i]);
                         }
-                        table.Insert(newSymb);
+                        table.Insert($2);
                     } 
                     args_ID_cnt =0;
                     function_arg_types.clear(); 
@@ -271,6 +250,12 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN compound_statem
                     } 
                     args_ID_cnt =0;
                     function_arg_types.clear();
+                }
+                | error
+                {
+                    // cout << "here\n"; 
+                    err_sem++; 
+                    errf << "Line# " << line_count << " : Syntax error at parameter list of function definition\n"; 
                 }
                 ;
 parameter_list : parameter_list COMMA type_specifier ID
@@ -332,9 +317,17 @@ compound_statement : LCURL
                     table.EnterScope(); 
                     for(int i =0 ; i < params.size(); ++i) table.Insert(params[i]);
                     params.clear(); 
-                } statements {   } RCURL { }
+                } statements RCURL
                 {
                     logfile << "compound_statement : LCURL statements RCURL\n";
+                    $$ = new SymbolInfo("compound_statement", "grammar");
+                    $$->node = new treeNode(line_count,$1->node->getfirstLine(),"compound_statement : LCURL statements RCURL","NULL");
+                    $$->node->addChild($1->node); 
+                    $$->node->addChild($3->node);
+                    $$->node->addChild($4->node);   
+                    // for(auto c : $2->node->children){
+                    //     cout << c->getRule() << "\n"; 
+                    // }
                     table.PrintAllScopeTables(logfile);
                     table.ExitScope();    
                 }
@@ -343,6 +336,7 @@ compound_statement : LCURL
                     $$ = new SymbolInfo("compound_statement", "grammar");
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"compound_statement : LCURL RCURL","NULL");
                     $$->node->addChild($1->node); 
+                    $$->node->addChild($2->node);
                     logfile << "compound_statement : LCURL RCURL\n";
                 }
                 ;
@@ -433,19 +427,19 @@ declaration_list : declaration_list COMMA ID
                     $$->node->addChild($5->node);
                     $$->node->addChild($6->node);
                     logfile << "declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n";
-                    string nameID = $3->getname(), arr_sz_str = $5->getname(); 
+                    string nameID = $3->getname(), arr_sz_str = $5->getname();  
                     if(var_type == "VOID"){
                         err_sem++; 
                         errf << "Line# " << line_count << ": array type cannot be void\n"; 
                     }
                     else{
                         int array_sz = stoi(arr_sz_str); 
-                        SymbolInfo *arrID = new SymbolInfo(nameID,$5->gettype()); 
+                        SymbolInfo *arrID = new SymbolInfo(nameID,"ID"); 
                         arrID->setIDType("ARA"); 
                         arrID->setVarType(var_type); 
                         arrID->setArraySize(array_sz); 
                         if(var_type == "INT"){
-                            for(int i = arrID->all_ints.size(); i < array_sz; ++i ) arrID->all_ints.pb(0);  
+                            for(int i = arrID->all_ints.size(); i < array_sz; ++i ) arrID->all_ints.pb(0);   
                         }
                         else if(var_type == "FLOAT"){
                             for(int i = arrID->all_floats.size() ; i < array_sz; ++i ) arrID->all_floats.pb(0);
@@ -513,6 +507,9 @@ statements : statement
                 $$ = new SymbolInfo("statements", "grammar");
                 $$->node = new treeNode(line_count,$1->node->getfirstLine(),"statements : statement","NULL");
                 $$->node->addChild($1->node);
+                // for(auto c : $1->node->children){
+                //     cout << c-.getRule() << "\n"; 
+                // }
                 logfile << "statements : statement\n";
             }
             | statements statement
@@ -637,12 +634,15 @@ expression_statement : SEMICOLON
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"expression_statement : expression SEMICOLON","NULL");
                     $$->node->addChild($1->node);
                     $$->node->addChild($2->node);
+                    // for( auto c : $1->node->children){
+                    //     cout << c->getRule() << "\n"; 
+                    // }
                     logfile << "expression_statement : expression SEMICOLON\n";
                 }
                 | error
                 {
                     err_sem++; 
-                    cout << "here\n"; 
+                    // cout << "here\n"; 
                     errf << "Line# "<< line_count << ": Syntax error at expression of expression statement\n"; 
                 }
                 ;
@@ -651,28 +651,47 @@ variable : ID
             ///////---------------------------------------------------------------------------------------------------------------------
             $$ = new SymbolInfo("variable", "grammar");
             logfile << "variable : ID\n";
-            string nameID = $1->getname(), IDtype = "VAR"; 
-            SymbolInfo *id = table.LookUp2(nameID,IDtype); 
-            if(id){
-                $$ = id;
-                $$->node = new treeNode(line_count,$1->node->getfirstLine(),"variable : ID","NULL");
-                $$->node->addChild($1->node);
+            string nameID = $1->getname();
+            SymbolInfo *id = table.LookUp(nameID);
+            treeNode *curr = $1->node; 
+            // cout << $1->node->getRule( ) << "\n"; 
+            if(id){ 
             }
             else{
                 err_sem++; 
-                cout << "Line# "<< line_count << ": Undeclared variable'" << nameID << "'\n";   
+                errf << "Line# "<< line_count << ": Undeclared variable'" << nameID << "'\n";   
             }
+            //will also take undeclared variable in the parse tree.
+            $$ = $1; 
+            $$->node = new treeNode(line_count,$1->node->getfirstLine(),"variable : ID","NULL");
+            $$->node->addChild(curr);
         }
         | ID LTHIRD expression RTHIRD
         {
             logfile << "variable : ID LTHIRD expression RTHIRD\n";
             string nameID = $1->getname(), IDtype = "ARA";  
-            SymbolInfo *curr = table.LookUp2(nameID,IDtype);
+            SymbolInfo *curr = table.LookUp2(nameID,IDtype); 
             if(curr){
                 if(curr->getAraySize() <= $3->all_ints[0]){
-                    ///here third arg is array index.
+                    ///Array Index out of bounds error. 
                     err_sem++; 
-                    errf << "Line# " << line_count << " : " << nameID << " array index out of bound\n"; 
+                    errf << "Line# " << line_count << " : " << nameID << " array index out of bound\n";
+                    $$ = new SymbolInfo("Error_variable", "grammar");
+                    $$->node = new treeNode(line_count,$1->node->getfirstLine(),"variable : ID LTHIRD expression RTHIRD","NULL");
+                    $$->node->addChild($1->node);
+                    $$->node->addChild($2->node);
+                    $$->node->addChild($3->node);
+                    $$->node->addChild($4->node); 
+                }
+                else if( $3->getVarType() == "FLOAT"){
+                    err_sem++; 
+                    errf << "Line# " << line_count << " : " << nameID << " array index cannot be float\n";
+                    $$ = new SymbolInfo("Error_variable", "grammar");
+                    $$->node = new treeNode(line_count,$1->node->getfirstLine(),"variable : ID LTHIRD expression RTHIRD","NULL");
+                    $$->node->addChild($1->node);
+                    $$->node->addChild($2->node);
+                    $$->node->addChild($3->node);
+                    $$->node->addChild($4->node);
                 }
                 else {
                     curr->setArrayInd($3->all_ints[0]);
@@ -682,9 +701,10 @@ variable : ID
                     else if( curr->getVarType() == "FLOAT"){
                         while( curr->all_floats.size() <= curr->getAraIndex()) curr->all_floats.pb(0);
                     }
-                    $$ = curr;
+                    treeNode *curr = $1->node; 
+                    $$ = $1;  
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"variable : ID LTHIRD expression RTHIRD","NULL");
-                    $$->node->addChild($1->node);
+                    $$->node->addChild(curr);
                     $$->node->addChild($2->node);
                     $$->node->addChild($3->node);
                     $$->node->addChild($4->node); 
@@ -693,28 +713,34 @@ variable : ID
             else{
                 err_sem++; 
                 errf << "Line# " << line_count << " : variable " << nameID << " undeclared.\n";  
+                $$ = new SymbolInfo("Error_variable", "grammar");
+                $$->node = new treeNode(line_count,$1->node->getfirstLine(),"variable : ID LTHIRD expression RTHIRD","NULL");
+                $$->node->addChild($1->node);
+                $$->node->addChild($2->node);
+                $$->node->addChild($3->node);
+                $$->node->addChild($4->node);
             }
         }
         ;
 expression : logic_expression
             {
-                // $$ = new SymbolInfo("expression", "grammar");
+                treeNode *curr = $1->node;
                 logfile << "expression  : logic_expression\n";
-                $$ = $1;
-                $$->all_floats.pb(0); 
-                $$->all_ints.pb(0);
+                $1->all_floats.pb(0); 
+                $1->all_ints.pb(0);
+                $$ = $1; 
                 $$->node = new treeNode(line_count,$1->node->getfirstLine(),"expression : logic_expression","NULL");
-                $$->node->addChild($1->node);
-                //testing 
-                // cout << "Logic epxr" << $$->getname() << "\n"; 
+                $$->node->addChild(curr);
             }
             | variable ASSIGNOP logic_expression
             {
                 logfile << "expression  : variable ASSIGNOP logic_expression\n";
+                // cout << $1->node->getRule() << "\n"; 
+                treeNode *curr = $1->node; 
                 string varType = $1->getVarType();
                 string varType2 = $3->getVarType(); 
                 string IDtype = $1->getIDType();
-                string IDtype2 = $3->getIDType();  
+                string IDtype2 = $3->getIDType();
                 if(varType == "INT"){
                     $1->all_ints.pb(0);
                     if(IDtype == "VAR"){
@@ -723,7 +749,7 @@ expression : logic_expression
                             else $1->all_ints[0] = $3->all_ints[ $3->getAraIndex() ];  
                         }
                         else{
-                            errf << "Warning at line " << line_count <<" : Assigning float value to integer\n"; 
+                            errf << "Line# " << line_count <<" : warning: possible loss of data in assignment of FLOAT to INT\n"; 
                         }
                     }
                     else if(IDtype == "ARA"){
@@ -745,7 +771,7 @@ expression : logic_expression
                             else $1->all_floats[0] = $3->all_floats[ $3->getAraIndex() ];  
                         }
                         else{
-                            errf << "Warning at line " << line_count <<" : Assigning integer value to float\n"; 
+                            errf << "Line# " << line_count <<" : Assigning integer value to float\n"; 
                         }
                     }
                     else if(IDtype == "ARA"){
@@ -764,20 +790,20 @@ expression : logic_expression
                 }
                 $$ = $1;
                 $$->node = new treeNode(line_count,$1->node->getfirstLine(),"expression : variable ASSIGNOP logic_expression","NULL");
-                $$->node->addChild($1->node);
+                $$->node->addChild(curr);
                 $$->node->addChild($2->node);
                 $$->node->addChild($3->node);
             }
             ;
 logic_expression : rel_expression
                 {
-                    $$ = new SymbolInfo("logic_expression", "grammar");
+                    treeNode *curr = $1->node; 
                     logfile << "logic_expression : rel_expression\n";
-					$$ = $1;
-					$$->all_ints.pb(0);
-					$$->all_floats.pb(0);
+					$1->all_ints.pb(0);
+					$1->all_floats.pb(0);
+                    $$ = $1; 
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"logic_expression : rel_expression","NULL");
-                    $$->node->addChild($1->node);
+                    $$->node->addChild(curr);
                 }
                 | rel_expression LOGICOP rel_expression
                 {
@@ -871,13 +897,13 @@ logic_expression : rel_expression
                 ;
 rel_expression : simple_expression
                 {
-                    // $$ = new SymbolInfo("simple_expression", "grammar");
                     logfile << "rel_expression  : simple_expression\n";
+                    treeNode* curr = $1->node; 
+                    $1->all_floats.pb(0);
+                    $1->all_ints.pb(0); 
                     $$ = $1;
-                    $$->all_floats.pb(0);
-                    $$->all_ints.pb(0); 
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"rel_expression : simple_expression","NULL");
-                    $$->node->addChild($1->node);
+                    $$->node->addChild(curr);
                 }
                 | simple_expression RELOP simple_expression
                 {
@@ -888,7 +914,7 @@ rel_expression : simple_expression
                     string relOp = $2->getname(); 
                         if(relOp == "=="){
                             if(varType1 != varType2){
-                                errf << "Error at line " << line_count << " : type mismatch\n";
+                                errf << "Line# " << line_count << " : type mismatch\n";
                             }
                             else{
                                 if( varType1 == "FLOAT") curr->all_ints[0] = (  $1->all_floats[0] == $3->all_floats[0] ? 1: 0 );
@@ -897,7 +923,7 @@ rel_expression : simple_expression
                         }
                         else if(relOp == "!="){
                             if(varType1 != varType2){
-                                errf << "Error at line " << line_count << " : type mismatch\n";
+                                errf << "Line# " << line_count << " : type mismatch\n";
                             }
                             else{
                                 if( varType1 == "FLOAT") curr->all_ints[0] = (  $1->all_floats[0] != $3->all_floats[0] ? 1: 0 );
@@ -906,7 +932,7 @@ rel_expression : simple_expression
                         }
                         else if(relOp == ">"){
                             if(varType1 != varType2){
-                                errf << "Error at line " << line_count << " : type mismatch\n";
+                                errf << "Line# " << line_count << " : type mismatch\n";
                             }
                             else{
                                 if( varType1 == "FLOAT") curr->all_ints[0] = (  $1->all_floats[0] > $3->all_floats[0] ? 1: 0 );
@@ -915,7 +941,7 @@ rel_expression : simple_expression
                         }   
                         else if(relOp == "<"){
                             if(varType1 != varType2){
-                                errf << "Error at line " << line_count << " : type mismatch\n";
+                                errf << "Line# " << line_count << " : type mismatch\n";
                             }
                             else{
                                 if( varType1 == "FLOAT") curr->all_ints[0] = (  $1->all_floats[0] < $3->all_floats[0] ? 1: 0 );
@@ -924,7 +950,7 @@ rel_expression : simple_expression
                         }
                         else if(relOp == ">="){
                             if(varType1 != varType2){
-                                errf << "Error at line " << line_count << " : type mismatch\n";
+                                errf << "Line# " << line_count << " : type mismatch\n";
                             }
                             else{
                                 if( varType1 == "FLOAT") curr->all_ints[0] = (  $1->all_floats[0] >= $3->all_floats[0] ? 1: 0 );
@@ -933,7 +959,7 @@ rel_expression : simple_expression
                         }
                         else if(relOp == "<="){
                             if(varType1 != varType2){
-                                errf << "Error at line " << line_count << " : type mismatch\n";
+                                errf << "Line# " << line_count << " : type mismatch\n";
                             }
                             else{
                                 if( varType1 == "FLOAT") curr->all_ints[0] = (  $1->all_floats[0] <= $3->all_floats[0] ? 1: 0 );
@@ -949,12 +975,12 @@ rel_expression : simple_expression
                 ;
 simple_expression : term
                 {
-                    // $$ = new SymbolInfo("simple_expression", "grammar");
-                    logfile << "simple_expression : term\n";
-                    $$ = $1; 
-                    $$->all_ints.pb(0); $$->all_floats.pb(0);
+                    treeNode *curr = $1->node; 
+                    logfile << "simple_expression : term\n"; 
+                    $1->all_ints.pb(0); $1->all_floats.pb(0);
+                    $$ = $1;
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"simple_expression : term","NULL");
-                    $$->node->addChild($1->node);
+                    $$->node->addChild(curr);
                 }
                 | simple_expression ADDOP term
                 {
@@ -962,9 +988,9 @@ simple_expression : term
                     string addop = $2->getname(); 
                     logfile << "simple_expression : simple_expression ADDOP term\n";
                     string ID1 = $1->getIDType(), ID2 = $3->getIDType(); 
-                    // cout << $1->getIDType() << "\n";  
+                    // cout << $3->getVarType() << "\n";  
                     string var_1 = $1->getVarType(), var_2 = $3->getVarType(); 
-                    SymbolInfo *curr = new SymbolInfo("INT"); //will change accordingly.
+                    SymbolInfo *curr = new SymbolInfo("INT"); //will change accordingly. 
                     if(addop == "+"){
                         if(ID1 == "VAR"){
                         if(ID2 == "VAR"){
@@ -1075,6 +1101,7 @@ simple_expression : term
                         }
                     }
                     $$ = curr; 
+                    // cout << curr->getVarType() << "\n" ; 
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"simple_expression ADDOP term","NULL");
                     $$->node->addChild($1->node);
                     $$->node->addChild($2->node);
@@ -1083,62 +1110,68 @@ simple_expression : term
                 ;
 term : unary_expression
                 {
-                    // $$ = new SymbolInfo("term", "grammar");
-                    logfile << "term :  unary_expression\n";
+                    logfile << "term :  unary_expression\n"; 
+                    treeNode *curr = $1->node; 
+                    $1->all_ints.pb(0); 
+                    $1->all_floats.pb(0);
                     $$ = $1; 
-                    $$->all_ints.pb(0); 
-                    $$->all_floats.pb(0);
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"term : unary_expression","NULL");
-                    $$->node->addChild($1->node);
+                    $$->node->addChild(curr);
                 }
                 | term MULOP unary_expression
                 {
-                    // $$ = new SymbolInfo("term", "grammar");
                     logfile << "term : term MULOP unary_expression\n";
                     string mulop_type = $2->getname();
                     string first_T = $1->getIDType(), second_T  = $3->getIDType(); 
-                    string first_var = $1->getVarType(), second_var = $3->getVarType(); 
-                    
+                    string first_var = $1->getVarType(), second_var = $3->getVarType();     
+                    string final_var = "";                  
+                    SymbolInfo *curr = new SymbolInfo("INT"); ///random type. will change later.
+                    curr->all_floats.pb(0); 
+                    curr->all_ints.pb(0);  
                     if(mulop_type == "*"){
                         if(first_T == "VAR"){
                             if( second_T == "VAR"){
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
-                                    if(second_var == "INT") curr->all_floats[0] = $1->all_floats[0] * $3->all_ints[0]; 
-                                    else curr->all_floats[0] = $1->all_floats[0] * $3->all_floats[0];
-                                    $$ = curr;  
+                                    final_var = "FLOAT";  
+                                    if(second_var == "INT") {   curr->all_floats[0] = $1->all_floats[0] * $3->all_ints[0]; } 
+                                    else curr->all_floats[0] = $1->all_floats[0] * $3->all_floats[0];  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                        final_var = "FLOAT";  
                                         curr->all_floats[0] = $1->all_ints[0] * $3->all_floats[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("INT");
+                                        final_var = "INT";  
                                         curr->all_ints[0] = $1->all_ints[0] * $3->all_ints[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
                             else if( second_T == "ARA"){
                                 int ind2 = $3->getAraIndex(); 
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                    final_var = "FLOAT";  
                                     if(second_var == "INT") curr->all_floats[0] = $1->all_floats[0] * $3->all_ints[ind2]; 
                                     else curr->all_floats[0] = $1->all_floats[0] * $3->all_floats[ind2];
-                                    $$ = curr;  
+                                    // $$ = curr;  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        final_var = "FLOAT"; 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT"); 
                                         curr->all_floats[0] = $1->all_ints[0] * $3->all_floats[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        final_var = "INT" ; 
+                                        // SymbolInfo *curr = new SymbolInfo("INT"); 
                                         curr->all_ints[0] = $1->all_ints[0] * $3->all_ints[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
@@ -1147,42 +1180,48 @@ term : unary_expression
                             int ind1 = $1->getAraIndex();
                             if( second_T == "VAR"){ 
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                    final_var = "FLOAT";  
                                     if(second_var == "INT") curr->all_floats[0] = $1->all_floats[ind1] * $3->all_ints[0]; 
                                     else curr->all_floats[0] = $1->all_floats[ind1] * $3->all_floats[0];
-                                    $$ = curr;  
+                                    // $$ = curr;  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                        final_var = "FLOAT";  
                                         curr->all_floats[0] = $1->all_ints[ind1] * $3->all_floats[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("INT");
+                                        final_var = "INT";  
                                         curr->all_ints[0] = $1->all_ints[ind1] * $3->all_ints[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
                             else if( second_T == "ARA"){
                                 int ind2 = $3->getAraIndex(); 
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                    final_var = "FLOAT";  
                                     if(second_var == "INT") curr->all_floats[0] = $1->all_floats[ind1] * $3->all_ints[ind2]; 
                                     else curr->all_floats[0] = $1->all_floats[ind1] * $3->all_floats[ind2];
-                                    $$ = curr;  
+                                    // $$ = curr;  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                        final_var = "FLOAT";  
                                         curr->all_floats[0] = $1->all_ints[ind1] * $3->all_floats[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("INT");
+                                        final_var = "INT";  
                                         curr->all_ints[0] = $1->all_ints[ind1] * $3->all_ints[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
@@ -1192,11 +1231,12 @@ term : unary_expression
                         if(first_T == "VAR"){
                             if( second_T == "VAR"){
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                    final_var = "FLOAT";  
                                     if(second_var == "INT") {
                                         if($3->all_ints[0] == 0){
                                             err_sem++; 
-                                            errf << "Error at line " << line_count << " : Divide by zero\n"; 
+                                            errf << "Line# " << line_count << " : Divide by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity(); 
                                         }
                                         else curr->all_floats[0] = $1->all_floats[0] / $3->all_ints[0];
@@ -1209,35 +1249,38 @@ term : unary_expression
                                         }
                                         else curr->all_floats[0] = $1->all_floats[0] / $3->all_floats[0];
                                     }
-                                    $$ = curr;  
+                                    // $$ = curr;  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                        final_var = "FLOAT";  
                                         if($3->all_floats[0] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n";
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[0] / $3->all_floats[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("INT");
+                                        final_var = "INT"; 
                                         if($3->all_ints[0] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[0] / $3->all_ints[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
                             else if( second_T == "ARA"){
                                 int ind2 = $3->getAraIndex(); 
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    // SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    final_var = "FLOAT"; 
                                     if(second_var == "INT") {
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
@@ -1254,28 +1297,30 @@ term : unary_expression
                                         }
                                         else curr->all_floats[0] = $1->all_floats[0] / $3->all_floats[ind2];
                                     }
-                                    $$ = curr;  
+                                    // $$ = curr;  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                        final_var = "FLOAT"; 
                                         if($3->all_floats[ind2] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[0] / $3->all_floats[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("INT");
+                                        final_var = "INT"; 
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[0] / $3->all_ints[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
@@ -1284,7 +1329,8 @@ term : unary_expression
                             int ind1= $1->getAraIndex(); 
                             if( second_T == "VAR"){
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                    final_var = "FLOAT"; 
                                     if(second_var == "INT") {
                                         if($3->all_ints[0] == 0){
                                             err_sem++; 
@@ -1301,35 +1347,38 @@ term : unary_expression
                                         }
                                         else curr->all_floats[0] = $1->all_floats[ind1] / $3->all_floats[0];
                                     }
-                                    $$ = curr;  
+                                    // $$ = curr;  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                        final_var = "FLOAT"; 
                                         if($3->all_floats[0] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n";
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[ind1] / $3->all_floats[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("INT");
+                                        final_var = "INT"; 
                                         if($3->all_ints[0] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[ind1] / $3->all_ints[0];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
                             else if( second_T == "ARA"){
                                 int ind2 = $3->getAraIndex(); 
                                 if(first_var == "FLOAT"){
-                                    SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                    // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                    final_var = "FLOAT"; 
                                     if(second_var == "INT") {
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
@@ -1346,41 +1395,53 @@ term : unary_expression
                                         }
                                         else curr->all_floats[0] = $1->all_floats[ind1] / $3->all_floats[ind2];
                                     }
-                                    $$ = curr;  
+                                    // $$ = curr;  
                                 }
                                 else{
                                     if(second_var == "FLOAT"){
-                                        SymbolInfo *curr = new SymbolInfo("FLOAT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("FLOAT");
+                                        final_var = "FLOAT"; 
                                         if($3->all_floats[ind2] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_floats[0] = numeric_limits<float>::infinity();
                                         }
                                         else curr->all_floats[0] = $1->all_ints[ind1] / $3->all_floats[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                     else{
-                                        SymbolInfo *curr = new SymbolInfo("INT"); 
+                                        // SymbolInfo *curr = new SymbolInfo("INT");
+                                        final_var = "INT"; 
                                         if($3->all_ints[ind2] == 0){
                                             err_sem++; 
                                             errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
                                             curr->all_ints[0] = numeric_limits<int>::infinity();
                                         }
                                         else curr->all_ints[0] = $1->all_ints[ind1] / $3->all_ints[ind2];
-                                        $$ = curr; 
+                                        // $$ = curr; 
                                     }
                                 }
                             }
                         }
                     }
                     else if(mulop_type == "%"){
+                        
                         if(first_var == "FLOAT" || second_var == "FLOAT"){
                             errf << "Line# " << line_count << ": Operands of modulus must be integers\n";
                             err_sem++;  
                         }
                         else{
-                            SymbolInfo *curr = new SymbolInfo("INT"); 
-                            if(first_T == "VAR"){
+                            // SymbolInfo *curr = new SymbolInfo("INT");
+                            int check = $3->all_ints[0] ; 
+                            if(check == 0){
+                                err_sem++; 
+                                errf << "Line# " << line_count << ": Warning: Division by zero\n"; 
+                                // $$ = new SymbolInfo("error", "grammar");
+                                final_var = "error";  
+                            } 
+                            else {
+                                final_var = "INT";
+                                 if(first_T == "VAR"){
                                 if(second_T == "VAR") curr->all_ints[0] = $1->all_ints[0] % $3->all_ints[0]; 
                                 else curr->all_ints[0] = $1->all_ints[0] % $3->all_ints[ $3->getAraIndex() ];
                             }
@@ -1389,10 +1450,13 @@ term : unary_expression
                                 if(second_T == "VAR") curr->all_ints[0] = $1->all_ints[ind1] % $3->all_ints[0]; 
                                 else curr->all_ints[0] = $1->all_ints[ind1] % $3->all_ints[ $3->getAraIndex() ];
                             }
-                            $$ = curr; 
+                            // $$ = curr;
+                            } 
                         }
-                    }
+                    } 
+                    $$ = curr; 
                     $$->setIDType("VAR");
+                    $$->setVarType(final_var); 
                     $$->node = new treeNode(line_count,$1->node->getfirstLine(),"term : term MULOP unary_expression","NULL");
                     $$->node->addChild($1->node);
                     $$->node->addChild($2->node);
@@ -1440,85 +1504,88 @@ unary_expression : ADDOP unary_expression
                     }
                     | factor
                     {
-                        // $$ = new SymbolInfo("expression", "grammar");
+                        treeNode *curr = $1->node; 
                         logfile << "unary_expression : factor\n";
+                        $1->all_ints.pb(0);
+                        $1->all_floats.pb(0);
                         $$ = $1;
-                        $$->all_ints.pb(0);
-                        $$->all_floats.pb(0);
                         $$->node = new treeNode(line_count,$1->node->getfirstLine(),"unary_expression : factor","NULL");
-                        $$->node->addChild($1->node);
+                        $$->node->addChild(curr); 
                     }
                     ;
 factor : variable
         {
-            // $$ = new SymbolInfo("factor", "grammar");
+            treeNode *curr = $1->node; 
             logfile << "factor  : variable\n"; 
             $$ = $1; 
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor : variable","NULL");
-             $$->node->addChild($1->node);
+            $$->node->addChild(curr);
         }
         | ID LPAREN argument_list RPAREN
         {
-            // $$ = new SymbolInfo("factor", "grammar");
             logfile << "factor : ID LPAREN argument_list RPAREN\n";
             string funcName = $1->getname(); 
             string IDType = "FUNC";
             if(!table.LookUp2(funcName,IDType)){
-                errf << "Line#" << line_count << ": Undeclared function'" << funcName <<  "'\n";
+                errf << "Line# " << line_count << ": Undeclared function'" << funcName <<  "'\n";
                 err_sem++; 
+                $$ = new SymbolInfo("Error", "grammar"); 
+                $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor : ID LPAREN argument_list RPAREN","NULL");
             } 
             else{
-                string getReturn = $1->getFuncRet(); 
+                string name = $1->getname(), type = "FUNC"; 
+                SymbolInfo *curr1 = table.LookUp2(name, type);
+                string getReturn = curr1->getFuncRet(); 
                 if(getReturn == "VOID"){
                     err_sem++; 
                     errf << "Line# " << line_count << ": Void cannot be used in expression\n";
+                    $$ = new SymbolInfo("Error", "grammar");
+                    $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor : ID LPAREN argument_list RPAREN","NULL");
                 }
                 else{
                     SymbolInfo *curr = new SymbolInfo(getReturn);
-                    //---------------------------------useless. 
 					if($1->getVarType() == "INT")curr->all_ints[0] = 0;
 					else if($1->getVarType() == "FLOAT")curr->all_floats[0] = 0;
 					$$ = curr;
-                    $$->node = new treeNode(line_count,$1->node->getfirstLine(),"ID LPAREN argument_list RPAREN","NULL");
-                    $$->node->addChild($1->node);
-                    $$->node->addChild($2->node);
-                    $$->node->addChild($3->node);
-                    $$->node->addChild($4->node);
-                    //----------------------------------
+                    $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor : ID LPAREN argument_list RPAREN","NULL");
                 }
             }
+            $$->node->addChild($1->node);
+            $$->node->addChild($2->node);
+            $$->node->addChild($3->node);
+            $$->node->addChild($4->node);
         }
         | LPAREN expression RPAREN
         {
-            // $$ = new SymbolInfo("expression", "grammar");
             logfile << "factor : LPAREN expression RPAREN\n";
+            treeNode *second_node = $2->node; 
             $$ = $2;
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor : LPAREN expression RPAREN","NULL");
             $$->node->addChild($1->node);
-            $$->node->addChild($2->node);
+            $$->node->addChild(second_node);
             $$->node->addChild($3->node);
         }
         | CONST_INT
         {
-            // $$ = new SymbolInfo("expression", "grammar");
             logfile << "factor  : CONST_INT\n";
-			$1->setVarType("INT");
-            $1->setIDType("VAR"); 
-			$1->all_ints[0]= stoi($1->getname());
-			$$ = $1;
+            treeNode *curr = $1->node; 
+            $$ = $1;
+            $$->setVarType("INT");
+            $$->setIDType("VAR");
+			$$->all_ints[0]= stoi($1->getname());
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor  : CONST_INT","NULL");
-            $$->node->addChild($1->node);
+            $$->node->addChild(curr);
         }
         | CONST_FLOAT
         {
-            // $$ = new SymbolInfo("expression", "grammar");
             logfile << "factor : CONST_FLOAT\n";
-			$1->setVarType("FLOAT");
-            $1->setIDType("VAR"); 
-			$1->all_floats[0]= stoi($1->getname());
+            treeNode *curr = $1->node; 
 			$$ = $1;
+            $$->setVarType("FLOAT");
+            $$->setIDType("VAR"); 
+			$$->all_floats[0]= stof($1->getname());
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor  : CONST_FLOAT","NULL");
-            $$->node->addChild($1->node);
+            $$->node->addChild(curr);
         }
         | variable INCOP
         {
@@ -1541,9 +1608,10 @@ factor : variable
                     $1->all_floats[ind] += 1.0; 
                 }
             }
+            treeNode *first_node = $1->node; 
             $$ = $1;
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor  : variable INCOP","NULL");
-            $$->node->addChild($1->node);
+            $$->node->addChild(first_node);
             $$->node->addChild($2->node);
         }
         | variable DECOP
@@ -1567,9 +1635,10 @@ factor : variable
                     $1->all_floats[ind] -= 1.0; 
                 }
             }
+            treeNode *first_node = $1->node; 
             $$ = $1;
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor  : variable DECOP","NULL");
-            $$->node->addChild($1->node);
+            $$->node->addChild(first_node);
             $$->node->addChild($2->node);
         }
         ;
@@ -1582,7 +1651,7 @@ argument_list : arguments
                 }
                 |
                 {
-                    // empty transition
+                    $$ = new SymbolInfo("arguments_list","grammar");
                 }
                 ;
 arguments : arguments COMMA logic_expression
