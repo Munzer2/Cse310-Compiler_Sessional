@@ -1,0 +1,11 @@
+Line# 1: Token <INT> Lexeme int found
+type_specifier  : INT
+Line# 1: Token <ID> Lexeme a found
+Line# 1: Token <SEMICOLON> Lexeme ; found
+declaration_list : ID
+var_declaration : type_specifier declaration_list SEMICOLON
+unit  : var_declaration
+program : unit
+start : program
+Total Lines: 1
+Total Errors: 0
