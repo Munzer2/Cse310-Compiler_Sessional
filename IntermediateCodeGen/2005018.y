@@ -97,9 +97,9 @@ unit : var_declaration
         {
             $$ = new SymbolInfo("unit", "grammar"); 
             logfile << "unit : func_declaration\n";
-            vector< treeNode* > vect = $$->node->getChildren(); 
-            for(auto node: vect){
-                 cout << node->getRule() << "\n";}  
+            // vector< treeNode* > vect = $$->node->getChildren(); 
+            // for(auto node: vect){
+            //      cout << node->getRule() << "\n";}  
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"unit : func_declaration","NULL");
             $$->node->addChild($1->node); 
         }
@@ -129,7 +129,7 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
                         if(check){
                             errf << "Line# " << line_count << ": Function '"<< nameID <<"' already declared\n"; 
                             err_sem++; 
-                            cout << "here\n"; 
+                            // cout << "here\n"; 
                         }
                         else{
                             //This section is for ID which is of type 'FUNC. It has a vector that stores function argtypes. 
@@ -410,23 +410,17 @@ declaration_list : declaration_list COMMA ID
                         errf << "Line# " << line_count << ": variable cant be void\n"; 
                     }
                     else{
-                        if( table.LookUp2(nameID,IDtype) ){
-                            err_sem++;
-                            errf << "Line# " << line_count << ": variable '" << nameID << "' already declared\n";
-                        }
-                        else{
-                            SymbolInfo *varID = new SymbolInfo(nameID,$3->gettype()); 
+                        SymbolInfo *varID = new SymbolInfo(nameID,$3->gettype()); 
                             varID->setIDType("VAR"); 
                             varID->setVarType(var_type); 
                             table.Insert(varID);
                             /////--------------------------ICG
                             $3->node->_name =varID->node->_name = $3->getname();
-                            table.setStackOffTable(table.getCurrStackOffset()-2);
+                            if( table.getCurrentID() != "1") table.setStackOffTable(table.getCurrStackOffset()-2);
                             varID->node->stackOff = table.getStackOffset(); 
                             varID->node->is_global = (table.getCurrentID() == "1" ?  1:0);
                             $3->node->stackOff = varID->node->stackOff;
-                            $3->node->is_global = varID->node->is_global;  
-                        }
+                            $3->node->is_global = varID->node->is_global;
                     }
                 }
                 | declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
@@ -462,7 +456,7 @@ declaration_list : declaration_list COMMA ID
                         $3->node->_name = arrID->node->_name = $3->getname(); 
                         $3->node->isArr.first = arrID->node->isArr.first = 1;
                         $3->node->isArr.second = arrID->node->isArr.second = $5->getname(); 
-                        table.setStackOffTable(table.getCurrStackOffset()-2*array_sz);
+                        if(table.getCurrentID() != "1") table.setStackOffTable(table.getCurrStackOffset()-2*array_sz);
                         arrID->node->stackOff = table.getStackOffset();
                         arrID->node->is_global = (table.getCurrentID() == "1" ?  1:0);
                         $3->node->stackOff = arrID->node->stackOff;
@@ -487,8 +481,14 @@ declaration_list : declaration_list COMMA ID
                         varID->setVarType(var_type); 
                         table.Insert(varID);
                         ////---------------------ICG
-                        // cout << nameID << " : " << table.getStackOffset() << "\n"; 
-                        table.setStackOffTable(table.getCurrStackOffset()-2);
+                        // if(nameID == "b")
+                        // {
+                        //     table.PrintAllScopeTables2();
+                        // } 
+                        if( table.getCurrentID() != "1") {
+                            table.setStackOffTable(table.getCurrStackOffset()-2);
+                        }
+                        // cout << nameID << " : " << table.getStackOffset() << "\n";
                         varID->node->stackOff = table.getStackOffset(); 
                         // cout<< nameID<< " : " << table.getStackOffset() << "\n" ; 
                         varID->node->is_global = (table.getCurrentID() == "1" ?  1:0);
@@ -529,7 +529,7 @@ declaration_list : declaration_list COMMA ID
                         $1->node->isArr.first = arrID->node->isArr.first = 1;
                         $1->node->isArr.second = arrID->node->isArr.second = $3->getname(); 
                         $1->node->_name = arrID->node->_name  = $1->getname(); 
-                        table.setStackOffTable(table.getCurrStackOffset()-2*array_sz);
+                        if(table.getCurrentID() != "1") table.setStackOffTable(table.getCurrStackOffset()-2*array_sz);
                         arrID->node->stackOff = table.getStackOffset();
                         arrID->node->is_global = (table.getCurrentID() == "1" ?  1:0);
                         $1->node->stackOff = arrID->node->stackOff;
@@ -1526,6 +1526,8 @@ factor : variable
             $$ = $1; 
             $$->node = new treeNode(line_count,$1->node->getfirstLine(),"factor : variable","NULL");
             $$->node->addChild(curr);
+            ////-----------------------------
+            $$->node->_name = $1->getname();
         }
         | ID LPAREN argument_list RPAREN
         {

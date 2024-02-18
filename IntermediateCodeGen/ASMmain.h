@@ -296,7 +296,6 @@ void trav(treeNode *&root)
     }
     if (root->getRule() == "start : program")
     {
-        /// something here maybe.
         trav(root->children[0]);
         PrintNewlineProc();
         PrintPrintlnProc();
@@ -353,13 +352,9 @@ void trav(treeNode *&root)
         }
         ASM << "\tPUSH BP\n";
         ASM << "\tMOV BP, SP\n";
-        for (auto x : root->children)
-        {
-            trav(x);
-        }
+        trav(root->children[4]);
         ASM << func_name << "_leaving:\n"; // this is just for checking
-        /// Now add the stack offset. added. updated.
-        ASM << "\tADD SP," << -root->children[4]->stackOff << "\n";
+        ASM << "\tADD SP, " << -root->children[4]->stackOff << "\n";
         ASM << "\tPOP BP\n";
         ////Now the exit function code.
         if (func_name == "main")
@@ -402,7 +397,6 @@ void trav(treeNode *&root)
             ASM << "\tMOV AX, 4CH\n";
             ASM << "\tINT 21H\n";
         }
-        // cout << "here : " << root->children[5]->stackOff << "\n";
         ASM << "\tADD SP, " << -root->children[5]->stackOff << "\n";
         ASM << "\tPOP BP\n";
         if (func_name != "main")
@@ -426,7 +420,7 @@ void trav(treeNode *&root)
         root->children[0]->lEnd = root->lEnd;
         trav(root->children[0]);
         root->stackOff = root->children[0]->stackOff;
-        ASM << root->lEnd << ":\n";
+        ASM << root->lEnd << ":     ; Line : " << root->getfirstLine() << "\n";
     }
     else if (root->getRule() == "statements : statements statement")
     {
@@ -438,7 +432,7 @@ void trav(treeNode *&root)
         }
         root->stackOff = min(root->children[1]->stackOff, root->children[0]->stackOff);
         // print the label.
-        ASM << root->lEnd << ":\n";
+        ASM << root->lEnd << ":     ; Line : " << root->getfirstLine() << "\n";
     }
     else if (root->getRule() == "statement : var_declaration")
     {
@@ -460,7 +454,7 @@ void trav(treeNode *&root)
     {
         trav(root->children[2]);
         string loopLabel = newLabel();
-        ASM << loopLabel << ":\n";
+        ASM << loopLabel << ":      ; Line : " << root->getfirstLine() << "\n";
         root->children[3]->is_cond = 1;
         root->children[3]->tlab = newLabel();
         root->children[3]->flab = root->lEnd;
@@ -479,8 +473,9 @@ void trav(treeNode *&root)
         root->children[2]->flab = root->lEnd;
         root->children[4]->lEnd = root->lEnd;
         trav(root->children[2]);
-        ASM << root->children[2]->tlab << ":\n";
+        ASM << root->children[2]->tlab << ":    ; Line : " << root->getfirstLine() << "\n";
         trav(root->children[4]);
+        root->stackOff = root->children[4]->stackOff;
     }
     else if (root->getRule() == "statement : IF LPAREN expression RPAREN statement ELSE statement")
     {
@@ -490,16 +485,17 @@ void trav(treeNode *&root)
         root->children[4]->lEnd = root->children[2]->flab;
         root->children[6]->lEnd = root->lEnd;
         trav(root->children[2]);
-        ASM << root->children[2]->tlab << ":\n";
+        ASM << root->children[2]->tlab << ":    ; Line : " << root->getfirstLine() << "\n";
         trav(root->children[4]);
         ASM << "\tJMP " << root->lEnd << "\n";
         ASM << root->children[2]->flab << ":\n";
         trav(root->children[6]);
+        root->stackOff = root->children[4]->stackOff + root->children[6]->stackOff;
     }
     else if (root->getRule() == "statement : WHILE LPAREN expression RPAREN statement")
     {
         string loopLabel = newLabel();
-        ASM << loopLabel << ":\n";
+        ASM << loopLabel << ":        ; Line : " << root->getfirstLine() << "\n";
         root->children[2]->is_cond = 1;
         root->children[2]->tlab = newLabel();
         root->children[2]->flab = root->lEnd;
@@ -508,18 +504,19 @@ void trav(treeNode *&root)
         ASM << root->children[2]->tlab << ":\n";
         trav(root->children[4]);
         ASM << "\tJMP " << loopLabel << "\n";
+        root->stackOff = root->children[4]->stackOff;
     }
     else if (root->getRule() == "statement : PRINTLN LPAREN ID RPAREN SEMICOLON")
     {
         if (root->children[2]->is_global)
         {
-            ASM << "\tMOV AX, " << root->children[2]->_name << "\n";
+            ASM << "\tMOV AX, " << root->children[2]->_name << "; Line: " << root->getfirstLine() << "\n";
             ASM << "\tCALL PRINT_OUT\n";
             // ASM << "\tCALL NEWLINE\n";
         }
         else
         {
-            ASM << "\tPUSH BP\n";
+            ASM << "\tPUSH BP ; Line: " << root->getfirstLine() << "\n";
             ASM << "\tMOV BX, " << root->children[2]->stackOff << "\n";
             ASM << "\tADD BP, BX\n";
             ASM << "\tMOV AX, [BP]\n";
@@ -531,7 +528,7 @@ void trav(treeNode *&root)
     else if (root->getRule() == "statement : RETURN expression SEMICOLON")
     {
         trav(root->children[1]);
-        ASM << "\tMOV DX,CX\n";
+        ASM << "\tMOV DX,CX ; Line: " << root->getfirstLine() << "\n";
         ASM << "\tJMP " << currFunc << "_leaving\n";
     }
     else if (root->getRule() == "expression_statement : expression SEMICOLON")
@@ -550,11 +547,11 @@ void trav(treeNode *&root)
         if (root->children[0]->is_global && !root->children[0]->isArr.first) /// basically any global variable
         {
             trav(root->children[0]);
-            ASM << "\tMOV " << root->children[0]->_name << ", CX\n";
+            ASM << "\tMOV " << root->children[0]->_name << ", CX ; Line : " << root->getfirstLine() << "\n";
         }
         else
         {
-            ASM << "\tPUSH CX\n";
+            ASM << "\tPUSH CX ; Line : " << root->getfirstLine() << "\n";
             trav(root->children[0]);
             root->stackOff = root->children[0]->stackOff;
             ASM << "\tPOP AX\n";
@@ -564,7 +561,7 @@ void trav(treeNode *&root)
         }
         if (root->is_cond)
         {
-            ASM << "\tJMP " << root->tlab << "\n";
+            ASM << "\tJMP " << root->tlab << " ; Line : " << root->getfirstLine() << "\n";
         }
     }
     else if (root->getRule() == "expression : logic_expression")
@@ -613,7 +610,7 @@ void trav(treeNode *&root)
         trav(root->children[2]);
         if (!root->is_cond)
         {
-            ASM << "\tPOP AX\n";
+            ASM << "\tPOP AX ; Line : " << root->getfirstLine() << "\n";
             if (logicOp == "||")
             {
                 string l1 = newLabel();
@@ -662,7 +659,7 @@ void trav(treeNode *&root)
     {
         // No more cond propagation.
         trav(root->children[0]);
-        ASM << "\tPUSH CX\n";
+        ASM << "\tPUSH CX ; Line : " << root->getfirstLine() << "\n";
         trav(root->children[2]);
         ASM << "\tPOP AX\n";
         ASM << "\tCMP AX, CX\n";
@@ -694,7 +691,7 @@ void trav(treeNode *&root)
     else if (root->getRule() == "simple_expression : simple_expression ADDOP term")
     { /// No cond propagation here as well.
         trav(root->children[0]);
-        ASM << "\tPUSH CX\n";
+        ASM << "\tPUSH CX ; Line : " << root->getfirstLine() << "\n";
         trav(root->children[2]);
         ASM << "\tPOP AX\n";
         if (root->children[1]->_name == "+")
@@ -723,7 +720,7 @@ void trav(treeNode *&root)
     {
         /// No need to send cond anymore.
         trav(root->children[0]);
-        ASM << "\tPUSH CX\n";
+        ASM << "\tPUSH CX ; Line : " << root->getfirstLine() << "\n";
         trav(root->children[2]);
         ASM << "\tPOP AX\n";
         /// first operand is in AX, second operand is in CX.
@@ -766,7 +763,7 @@ void trav(treeNode *&root)
         trav(root->children[1]);
         if (root->children[0]->_name == "-")
         {
-            ASM << "\tNEG CX\n";
+            ASM << "\tNEG CX ; Line : " << root->getfirstLine() << "\n";
         }
     }
     else if (root->getRule() == "unary_expression : NOT unary_expression")
@@ -779,7 +776,7 @@ void trav(treeNode *&root)
         {
             string l1 = newLabel();
             string l2 = newLabel();
-            ASM << "\tJCXZ " << l2 << "\n";
+            ASM << "\tJCXZ " << l2 << " ; Line : " << root->getfirstLine() << "\n";
             ASM << "\tMOV CX, 0\n";
             ASM << "\tJMP " << l1 << "\n";
             ASM << l2 << ":\n";
@@ -789,7 +786,7 @@ void trav(treeNode *&root)
     }
     else if (root->getRule() == "factor  : CONST_INT")
     {
-        ASM << "\tMOV CX, " << root->_name << "\n";
+        ASM << "\tMOV CX, " << root->_name << " ; Line : " << root->getfirstLine() << "\n";
         if (root->is_cond)
         {
             ASM << "\tJCXZ " << root->flab << "\n";
@@ -798,7 +795,7 @@ void trav(treeNode *&root)
     }
     else if (root->getRule() == "factor  : CONST_FLOAT")
     {
-        ASM << "\tMOV CX, " << root->_name << "\n";
+        ASM << "\tMOV CX, " << root->_name << " ; Line : " << root->getfirstLine() << "\n";
         if (root->is_cond)
         {
             ASM << "\tJCXZ " << root->flab << "\n";
@@ -810,11 +807,11 @@ void trav(treeNode *&root)
         trav(root->children[0]);
         if (root->children[0]->is_global && !root->children[0]->isArr.first)
         {
-            ASM << "\tMOV CX, " << root->children[0]->_name << "\n";
+            ASM << "\tMOV CX, " << root->children[0]->_name << " ; Line : " << root->getfirstLine() << "\n";
         }
         else
         {
-            ASM << "\tMOV CX, [BP]\n";
+            ASM << "\tMOV CX, [BP] ; Line : " << root->getfirstLine() << "\n";
             ASM << "\tPOP BP\n";
         }
         if (root->is_cond)
@@ -826,7 +823,7 @@ void trav(treeNode *&root)
     else if (root->getRule() == "factor : ID LPAREN argument_list RPAREN")
     {
         trav(root->children[2]);
-        ASM << "\tCALL " << root->children[0]->_name << "\n";
+        ASM << "\tCALL " << root->children[0]->_name << " ; Line : " << root->getfirstLine() << "\n";
         ASM << "\tMOV CX, DX\n";
         ASM << "\tADD SP, " << root->children[2]->stackOff << "\n";
         if (root->is_cond)
@@ -840,7 +837,7 @@ void trav(treeNode *&root)
         trav(root->children[1]);
         if (root->is_cond)
         {
-            ASM << "\tJCXZ " << root->flab << "\n";
+            ASM << "\tJCXZ " << root->flab << " ; Line : " << root->getfirstLine() << "\n";
             ASM << "\tJMP " << root->tlab << "\n";
         }
     }
@@ -849,10 +846,10 @@ void trav(treeNode *&root)
         trav(root->children[0]);
         if (!root->children[0]->isArr.first && root->children[0]->is_global) /// Should array be allowed?No
         {
-            ASM << "\tMOV CX, " << root->children[0]->_name << "\n";
+            ASM << "\tMOV CX, " << root->children[0]->_name << " ; Line : " << root->getfirstLine() << "\n";
         }
         else
-            ASM << "\tMOV CX, [BP]\n";
+            ASM << "\tMOV CX, [BP] ; Line : " << root->getfirstLine() << "\n";
         ASM << "\tMOV AX, CX\n";
         if (root->children[1]->_name == "++")
         {
@@ -863,7 +860,7 @@ void trav(treeNode *&root)
             ASM << "\tDEC CX\n";
         }
 
-        if (root->children[0]->is_global)
+        if (root->children[0]->is_global && !root->children[0]->isArr.first)
         {
             ASM << "\tMOV " << root->children[0]->_name << ", CX\n";
         }
@@ -885,7 +882,7 @@ void trav(treeNode *&root)
             ;
         else
         {
-            ASM << "\tPUSH BP\n";
+            ASM << "\tPUSH BP ; Line : " << root->getfirstLine() << "\n";
             ASM << "\tMOV BX, " << root->stackOff << "\n";
             ASM << "\tADD BP, BX\n";
         }
@@ -893,9 +890,9 @@ void trav(treeNode *&root)
     else if (root->getRule() == "variable : ID LTHIRD expression RTHIRD")
     {
         trav(root->children[2]);
-        if (root->is_global) /// will test later.
+        if (root->is_global) /// works
         {
-            ASM << "\tLEA SI, " << root->_name << "\n";
+            ASM << "\tLEA SI, " << root->_name << " ; Line : " << root->getfirstLine() << "\n";
             ASM << "\tADD SI, CX\n";
             ASM << "\tADD SI, CX\n";
             ASM << "\tPUSH BP\n";
@@ -903,7 +900,7 @@ void trav(treeNode *&root)
         }
         else
         {
-            ASM << "\tPUSH BP\n";
+            ASM << "\tPUSH BP ; Line : " << root->getfirstLine() << "\n";
             ASM << "\tMOV BX, CX\n";
             ASM << "\tADD BX, BX\n";
             ASM << "\tADD BX, " << root->stackOff << "\n";
@@ -919,13 +916,13 @@ void trav(treeNode *&root)
     {
         trav(root->children[0]);
         trav(root->children[2]);
-        ASM << "\tPUSH CX   ;This is actually function parameter\n";
+        ASM << "\tPUSH CX   ;This is actually function parameter.Line : " << root->getfirstLine() << "\n";
         root->stackOff = root->children[0]->stackOff + 2;
     }
     else if (root->getRule() == "arguments : logic_expression")
     {
         trav(root->children[0]);
-        ASM << "\tPUSH CX ;Another function paramter\n";
+        ASM << "\tPUSH CX ;Another function paramter.Line : " << root->getfirstLine() << "\n";
         root->stackOff = 2;
     }
     else
