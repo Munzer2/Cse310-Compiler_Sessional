@@ -1,0 +1,161 @@
+<string_state>([^\n\\\"]|(\\t))* {
+	string curr(yytext); 
+	ans += curr;
+	log_ans += curr; 
+	BEGIN first_line;
+}
+
+<string_state>[\\]+ {
+	string curr(yytext); 
+	log_ans += curr; 
+	BEGIN multi_state_new;
+}
+
+<string_state>\" {
+	cout << "Single lined string.\n"; 
+	tokenout << "<SINGLE LINE STRING, ";
+	for(int i =0 ; i < ans.size();){
+		if(ans[i] == '\\' && ans[i+1] == 't') { tokenout << "	"; i+=2; } 
+		else { tokenout << ans[i]; ++i; } 
+	}
+	tokenout << ">\n"; 
+	log_ans += '"';
+	logout << "Line# " << line_count << ": Token <SINGLE LINE STRING> Lexeme " << log_ans << " found\n"; 
+	ans = "";  
+	log_ans = ""; 
+	BEGIN INITIAL;
+}
+
+<string_state><<EOF>> {
+	cout << "Unfinished string.\n"; 
+	logout << "Error at line# " << line_count << ": UNFINISHED_STRING " << log_ans << "\n"; 
+	log_ans = ""; 
+	ans = ""; 
+	line_count++; 
+	error_count++; 
+	BEGIN INITIAL;
+}
+
+<first_line>[\\]+ {
+	string curr(yytext); 
+	log_ans += curr; 
+	BEGIN multi_state_new; 
+}
+
+<first_line>\" {
+	cout << "Single lined string.\n"; 
+	cout << ans << "\n";
+	tokenout << "<SINGLE LINE STRING, ";
+	for(int i =0 ; i < ans.size();){
+		if(ans[i] == '\\' && ans[i+1] == 't') { tokenout << "	"; i+=2; } 
+		else { tokenout << ans[i]; ++i; } 
+	}
+	tokenout << ">\n"; 
+	log_ans += '"';
+	logout << "Line# " << line_count << ": Token <SINGLE LINE STRING> Lexeme " << log_ans << " found\n"; 
+	ans = "";  
+	log_ans = ""; 
+	BEGIN INITIAL;
+}
+
+<first_line>\n {
+	cout << "Unfinished string.\n"; 
+	logout << "Error at line# " << line_count << ": UNFINISHED_STRING " << log_ans << "\n"; 
+	log_ans = ""; 
+	ans = ""; 
+	line_count++;  
+	error_count++; 
+	BEGIN INDENT;
+}
+
+<first_line><<EOF>> {
+	cout << "Unfinished string.\n"; 
+	logout << "Error at line# " << line_count << ": UNFINISHED_STRING " << log_ans << "\n"; 
+	log_ans = ""; 
+	ans = ""; 
+	line_count++; 
+	error_count++; 
+	BEGIN INITIAL;
+}
+
+
+<multi_state_new>\n { 
+	line_count++;
+	log_ans += '\n'; 
+	BEGIN multi_state1; 
+}
+
+<multi_state_new><<EOF>> {
+	cout << "Unfinished string.\n"; 
+	logout << "Error at line# " << line_count << ": UNFINISHED_STRING " << log_ans << "\n"; 
+	log_ans = ""; 
+	ans = ""; 
+	line_count++; 
+	error_count++; 
+	BEGIN INITIAL;
+}
+
+<multi_state_new2>\n {
+	line_count++;
+	log_ans += '\n'; 
+	BEGIN multi_state1; 
+}
+
+<multi_state_new2><<EOF>> {
+	cout << "Unfinished string.\n"; 
+	logout << "Error at line# " << line_count << ": UNFINISHED_STRING " << log_ans << "\n"; 
+	log_ans = ""; 
+	ans = ""; 
+	line_count++; 
+	error_count++; 
+	BEGIN INITIAL;
+}
+
+<multi_state1>([^\n\\\"]|(\\t))* {
+	string curr(yytext); 
+	ans += curr;
+	log_ans+= curr;   
+	BEGIN multi_state2;
+}
+
+<multi_state2>[\\]+ {
+	string curr(yytext); 
+	log_ans += curr;  
+	BEGIN multi_state_new2;
+}
+
+<multi_state2>\n {
+	cout << "Unfinished string.\n"; 
+	logout << "Error at line# " << line_count << ": UNFINISHED_STRING " << log_ans << "\n"; 
+	log_ans = ""; 
+	ans = ""; 
+	line_count++; 
+	error_count++;  
+	BEGIN INDENT;
+}
+
+<multi_state2>\" {   
+	cout << ans << "\n"; 
+	cout << log_ans << "\n";
+	log_ans += '"'; 
+	int tot_new = 0;
+	for(auto ch: log_ans){
+		if(ch == '\n' ) tot_new++ ; 
+	}
+	tokenout<< "<MULTI LINE STRING, " << ans << ">\n";  
+	logout << "Line# " << line_count - tot_new << ": Token <MULTI LINE STRING> Lexeme " << log_ans << " found\n";
+	ans = ""; 
+	log_ans = "";
+	BEGIN INITIAL; 
+}
+
+<multi_state2><<EOF>> {
+	cout << "Unfinished String.\n";
+	ans = "";
+	log_ans = "";
+	logout << "Error at line# " << line_count << ": UNFINISHED_STRING " << log_ans << "\n"; 
+	log_ans = ""; 
+	ans = "";
+	error_count++; 
+	BEGIN INITIAL;
+}

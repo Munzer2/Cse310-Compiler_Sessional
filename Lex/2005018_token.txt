@@ -1,0 +1,17 @@
+<MULOP, />
+<ID, s>
+<ID, s>
+<ID, s>
+<ID, s>
+<MULOP, *>
+<MULOP, *>
+<MULOP, *>
+<MULOP, *>
+<MULOP, *>
+<ID, ss>
+<ID, s>
+<ID, s>
+<MULOP, *>
+<MULOP, *>
+<MULOP, *>
+<MULOP, />

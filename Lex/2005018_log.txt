@@ -1,0 +1,61 @@
+Error at line# 2: UNFINISHED_COMMENT /***a multiline
+ s  s  s
+Line# 2: Token <MULOP> Lexeme / found
+Line# 3: Warning, tab requrired but got space.
+Line# 3: Token <ID> Lexeme s found
+	ScopeTable# 1
+	1
+	2
+	3
+	4
+	5
+	6 --> (s,ID)
+	7
+	8
+	9
+	10
+Line# 3: Token <ID> Lexeme s found
+	s already exists in the current ScopeTable
+Line# 3: Token <ID> Lexeme s found
+	s already exists in the current ScopeTable
+Line# 3: Token <ID> Lexeme s found
+	s already exists in the current ScopeTable
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <ID> Lexeme ss found
+	ScopeTable# 1
+	1 --> (ss,ID)
+	2
+	3
+	4
+	5
+	6 --> (s,ID)
+	7
+	8
+	9
+	10
+Line# 3: Token <ID> Lexeme s found
+	s already exists in the current ScopeTable
+Line# 3: Token <ID> Lexeme s found
+	s already exists in the current ScopeTable
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <MULOP> Lexeme * found
+Line# 3: Token <MULOP> Lexeme / found
+	ScopeTable# 1
+	1 --> (ss,ID)
+	2
+	3
+	4
+	5
+	6 --> (s,ID)
+	7
+	8
+	9
+	10
+Total lines: 3
+Total errors: 1
+Total warnings: 1
